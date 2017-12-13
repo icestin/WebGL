@@ -46,7 +46,7 @@ function main(){
         return;
     }
     var viewMatrix = new Matrix4();
-    viewMatrix.setLookAt(0.20, 0.25, 0.75, 0, 0, 0,  0, 1, 0);
+    viewMatrix.setLookAt(0.20, 0.25, 0.25, 0, 0, 0,  0, 1, 0);
     
     var modelMatrix = new Matrix4();
     modelMatrix.setRotate(-10, 0, 0, 1);
@@ -67,17 +67,17 @@ function main(){
 function initVertexBuffers(gl){
     var vertices=new Float32Array([
        //顶点坐标和颜色
-       0.0, 0.5, -0.4,  0.4, 1.0, 0.4, //绿色三角形在最后
-       -0.5, -0.5, -0.4, 0.4, 1.0, 0.4,
-       0.5, -0.5, -0.4, 1.0, 0.4, 0.4,
+       0.0,  0.5,  -0.4,    0.4, 1.0, 0.4, //绿色三角形在最后
+       -0.5, -0.5, -0.4,    0.4, 1.0, 0.4,
+       0.5,  -0.5, -0.4,    1.0, 0.4, 0.4,
 
-       0.5, 0.4, -0.2, 1.0, 0.4, 0.4,  //黄色三角形在中间
-       -0.5, 0.4, -0.2, 1.0, 1.0, 0.4,
-       0.0, -0.6, -0.2, 1.0, 1.0, 0.4,
+       0.5,  0.4, -0.2,   1.0, 0.4, 0.4,  //黄色三角形在中间
+       -0.5, 0.4, -0.2,   1.0, 1.0, 0.4,
+       0.0, -0.6, -0.2,   1.0, 1.0, 0.4,
        
-       0.0, 0.5, 0.0, 0.4, 0.4, 1.0,  //蓝色三角形在最前面
-       -0.5, -0,5, 0.0, 0.4, 0.4, 1.0,
-       0.5, -0.5, 0.0, 1.0, 0.4, 0.4
+       0.0,   0.5, 0.0,    0.4, 0.4, 1.0,  //蓝色三角形在最前面
+      -0.5, -0.5,   0.0,  0.4,  0.4,  1.0,
+       0.5,  -0.5, 0.0,    1.0, 0.4, 0.4,
     ]);
     var n=9; //点的个数
     //创建缓充区对象
@@ -106,12 +106,12 @@ function initVertexBuffers(gl){
     }
 
     //将缓冲区对象分配给a_position对象
-    gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, FSIZE *6, 0);
+    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, FSIZE *6, 0);
     //连接a_Position变量与分配给它的缓冲区对象
     gl.enableVertexAttribArray(a_Position);
 
     //将缓冲区对象分配给a_position对象
-    gl.vertexAttribPointer(a_Color, 2, gl.FLOAT, false, FSIZE * 6, FSIZE * 4);
+    gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, FSIZE * 6, FSIZE * 3);
     //连接a_Position变量与分配给它的缓冲区对象
     gl.enableVertexAttribArray(a_Color);
 
