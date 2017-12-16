@@ -10,7 +10,7 @@ var VSHADER_SOURCE=
 'uniform vec3 u_AmbientLight;\n'+ //环境光颜色
 'varying vec4 v_Color;\n'+
 'void main() {\n' +
-' gl_Position = u_MvpMatrix * a_Position;\n'+ //设置坐标
+'gl_Position = u_MvpMatrix * a_Position;\n'+ //设置坐标
 'vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n'+ // 对法向量进行归一化
 'float nDotL = max(dot(u_LightDirection, normal), 0.0);\n'+  //计算光线方向和法向量的点积
 'vec4 color = vec4(1.0, 0.4, 0.0, 1.0);\n'+
@@ -61,10 +61,10 @@ function main(){
         console.log('获取视图矩阵失败');
         return;
     }
-    gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+    gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2); //设置环境光亮度
     //设置光线颜色
-    gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
-    //设置光线方向（世界坐标系下
+    gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);  //设置平行光颜色
+    //设置光线方向（世界坐标系下)
     var lightDirection = new Vector3([0.5, 3.0, 4.0]);
     lightDirection.normalize();// 归一化
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
@@ -74,24 +74,25 @@ function main(){
     viewProMatrix.lookAt(20.0, 10.0, 30.0, 0, 0, 0, 0, 1, 0);   
     
     //gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
-    
+    gl.clearColor(0.0, 0.0, 0.0, 1);
+    gl.enable(gl.DEPTH_TEST);//开启隐藏面消除s 
     //注册键盘响应事件
     document.onkeydown = function(ev) {
       keydown(ev, gl, n, viewProMatrix, u_MvpMatrix, u_NormalMatrix);
     }
     draw(gl,n, viewProMatrix, u_MvpMatrix, u_NormalMatrix);
 
-    gl.clearColor(0.0, 0.0, 0.0, 1);
-    gl.enable(gl.DEPTH_TEST);//开启隐藏面消除s 
+  
  
 }
-var ANGLE_STEP = 3.0;// 每次按钮转动的角度
-var g_arm1Angle = 90.0;// arm1的当前角度 
-var g_joint1Angle = 0.0; //joint1 关节的当前角度（即 arm2的角度）
+var ANGLE_STEP = 3.0,      // 每次按钮转动的角度
+    g_arm1Angle = 90.0,    // arm1的当前角度 
+    g_joint1Angle = 20.0,  //joint1 关节的当前角度（即 arm2的角度）
 // 坐标变换矩阵
-var g_modelMatrix = new Matrix4(),
-    g_mvpMatrix = new Matrix4();
+    g_modelMatrix = new Matrix4(),
+    g_mvpMatrix = new Matrix4(),
     g_normalMatrix = new Matrix4(); //法线的旋转矩阵
+
 function keydown(ev, gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
     switch(ev.keyCode) {
         case 38: //上 ---> Joint1 绕着Z轴正向转动
@@ -100,7 +101,6 @@ function keydown(ev, gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
         case 40: //下  ----> Joint1 绕着Z轴负向转动
         if(g_joint1Angle > -135.0) g_joint1Angle -= ANGLE_STEP;
         break;
-        
         case 39: //右  ----> arm1 绕着Y轴正向转动
         g_arm1Angle = (g_arm1Angle + ANGLE_STEP) % 360;
         break;
@@ -122,7 +122,7 @@ function draw(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix){
     // Arm2 
     g_modelMatrix.translate(0.0, arm1Length, 0.0); //移至joint1处
     g_modelMatrix.rotate(g_joint1Angle, 0.0, 0.0, 1.0); //绕Z轴旋转
-    g_modelMatrix.scale(1.3, 1.0, 1.3); //使立方体粗一点
+    g_modelMatrix.scale(0.9, 1.1, 0.7); // 上部的机械臂 缩放下
     drawBox(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
     
 }
