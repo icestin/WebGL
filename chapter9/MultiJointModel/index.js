@@ -87,7 +87,9 @@ function main(){
 }
 var ANGLE_STEP = 3.0,      // 每次按钮转动的角度
     g_arm1Angle = 90.0,    // arm1的当前角度 
-    g_joint1Angle = 20.0,  //joint1 关节的当前角度（即 arm2的角度）
+    g_joint1Angle = 45.0,  //joint1 关节的当前角度（即 arm2的角度）
+    g_joint2Angle = 0.0,  // joint2 关节的当前角度
+    g_joint3Angle = 0.0,  // joint3 关节的当前角度
 // 坐标变换矩阵
     g_modelMatrix = new Matrix4(),
     g_mvpMatrix = new Matrix4(),
@@ -107,26 +109,75 @@ function keydown(ev, gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
         case 37: //下  ---->arm1 绕着Y轴负向转动
         g_arm1Angle = (g_arm1Angle- ANGLE_STEP) % 360;
         break;
-    default: break;
+        case 90: //Z  ----> Joint2 绕着Z轴负向转动
+        g_joint2Angle = (g_joint2Angle + ANGLE_STEP) % 360;
+        break;
+        case 88: //x  ----> Joint2 绕着 轴负向转动
+        g_joint2Angle = (g_joint2Angle - ANGLE_STEP) % 360;
+        break;
+        case 86: //V  ----> Joint3 绕着Z轴负向转动
+        if(g_joint3Angle < 60.0) g_joint3Angle = (g_joint3Angle + ANGLE_STEP) % 360;
+        break;
+        case 67: //C  ----> Joint1 绕着Z轴负向转动
+        if(g_joint3Angle > -60.0) g_joint3Angle = (g_joint3Angle - ANGLE_STEP) % 360;
+        break;
+        default: break;
     }
     draw(gl, n , viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
 }
 function draw(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    //绘制基座
+    var baseHeight = 2.0;
+    g_modelMatrix.setTranslate(0.0, -12.0, 0.0);
+    drawBox(gl, n, 10.0, baseHeight, 10.0, viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
+    
     // Arm1
     var arm1Length = 10.0;//arm1的长度
-    g_modelMatrix.setTranslate(0.0, -12.0, 0.0);
+    g_modelMatrix.translate(0.0, baseHeight, 0.0);  //移至基座
     g_modelMatrix.rotate(g_arm1Angle, 0.0, 1.0, 0.0); //绕Y轴旋转
-    drawBox(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix); //绘制
+    drawBox(gl, n, 3.0, arm1Length, 3.0, viewProjMatrix, u_MvpMatrix, u_NormalMatrix); //绘制
 
     // Arm2 
+    var arm2Length = 10.0;
     g_modelMatrix.translate(0.0, arm1Length, 0.0); //移至joint1处 因为还在绘制arm1的位置，需要返回到原点
     g_modelMatrix.rotate(g_joint1Angle, 0.0, 0.0, 1.0); //绕Z轴旋转
     g_modelMatrix.scale(0.9, 1.1, 0.7); // 上部的机械臂 缩放下
-    drawBox(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
+    drawBox(gl, n, 4.0, arm2Length, 4.0, viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
     
+    // A palm
+    var palmLength = 2.0;
+    g_modelMatrix.translate(0.0, arm2Length, 0.0); //移动到手掌处
+    g_modelMatrix.rotate(g_joint2Angle, 0.0, 1.0, 0.0 ); // 绕Y 轴旋转
+    drawBox(gl, n, 2.0, palmLength, 6.0, viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
+    
+    // 移动到手掌中心
+    g_modelMatrix.translate(0.0, palmLength, 0.0);
+
+    //手指1 
+    pushMatrix(g_modelMatrix);
+    g_modelMatrix.translate(0.0, 0.0, 2.0);
+    g_modelMatrix.rotate(g_joint3Angle, 1.0, 0.0, 0.0); //绕X轴旋转
+    drawBox(gl, n, 1.0, 2.0, 1.0,viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
+    g_modelMatrix =popMatrix();
+   
+    //手指2 
+    g_modelMatrix.translate(0.0, 0.0, -2.0);
+    g_modelMatrix.rotate(-g_joint3Angle, 1.0, 0.0, 0.0); //绕X轴旋转
+    drawBox(gl, n, 1.0, 2.0, 1.0,viewProjMatrix, u_MvpMatrix, u_NormalMatrix);
 }
-function drawBox(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
+var g_matrixStack = [];
+function pushMatrix(m){
+    var m2 = new Matrix4(m);
+    g_matrixStack.push(m2);
+}
+function popMatrix(){
+    return g_matrixStack.pop();
+}
+
+function drawBox(gl, n, width, height,depth, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
+   pushMatrix(g_modelMatrix); //保存模型矩阵
+     g_modelMatrix.scale(width, height, depth);
     // 计算模型视图矩阵并传给v_MvpMatrix变量
     g_mvpMatrix.set(viewProjMatrix);
     g_mvpMatrix.multiply(g_modelMatrix);
@@ -137,6 +188,7 @@ function drawBox(gl, n, viewProjMatrix, u_MvpMatrix, u_NormalMatrix) {
     gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
     // 绘制
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    g_modelMatrix = popMatrix(); //获取模型矩阵
 }
 function initArrayBuffer(gl, data, num, type, attribute){
     var buffer = gl.createBuffer();//创建缓冲区对象
@@ -170,12 +222,12 @@ function initVertexBuffers(gl){
     //   v2------v3
     // Vertex coordinates（a cuboid 3.0 in width, 10.0 in height, and 3.0 in length with its origin at the center of its bottom)
   var vertices = new Float32Array([
-    1.5, 10.0, 1.5, -1.5, 10.0, 1.5, -1.5,  0.0, 1.5,  1.5,  0.0, 1.5, // v0-v1-v2-v3 front
-    1.5, 10.0, 1.5,  1.5,  0.0, 1.5,  1.5,  0.0,-1.5,  1.5, 10.0,-1.5, // v0-v3-v4-v5 right
-    1.5, 10.0, 1.5,  1.5, 10.0,-1.5, -1.5, 10.0,-1.5, -1.5, 10.0, 1.5, // v0-v5-v6-v1 up
-   -1.5, 10.0, 1.5, -1.5, 10.0,-1.5, -1.5,  0.0,-1.5, -1.5,  0.0, 1.5, // v1-v6-v7-v2 left
-   -1.5,  0.0,-1.5,  1.5,  0.0,-1.5,  1.5,  0.0, 1.5, -1.5,  0.0, 1.5, // v7-v4-v3-v2 down
-    1.5,  0.0,-1.5, -1.5,  0.0,-1.5, -1.5, 10.0,-1.5,  1.5, 10.0,-1.5  // v4-v7-v6-v5 back
+    0.5, 1.0, 0.5, -0.5, 1.0, 0.5, -0.5, 0.0, 0.5,  0.5, 0.0, 0.5, // v0-v1-v2-v3 front
+    0.5, 1.0, 0.5,  0.5, 0.0, 0.5,  0.5, 0.0,-0.5,  0.5, 1.0,-0.5, // v0-v3-v4-v5 right
+    0.5, 1.0, 0.5,  0.5, 1.0,-0.5, -0.5, 1.0,-0.5, -0.5, 1.0, 0.5, // v0-v5-v6-v1 up
+   -0.5, 1.0, 0.5, -0.5, 1.0,-0.5, -0.5, 0.0,-0.5, -0.5, 0.0, 0.5, // v1-v6-v7-v2 left
+   -0.5, 0.0,-0.5,  0.5, 0.0,-0.5,  0.5, 0.0, 0.5, -0.5, 0.0, 0.5, // v7-v4-v3-v2 down
+    0.5, 0.0,-0.5, -0.5, 0.0,-0.5, -0.5, 1.0,-0.5,  0.5, 1.0,-0.5  // v4-v7-v6-v5 back
   ]);
     // Normal
   var normals = new Float32Array([
