@@ -11,7 +11,7 @@ var VSHADER_SOURCE=
 ' vec3 lightDirection = vec3(-0.35, 0.35, 0.87);\n'+
 'gl_Position = u_MvpMatrix * a_Position;\n'+ //设置坐标
 'vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n'+ // 对法向量进行归一化
-'float nDotL = max(dot(lightDirection, normal), 0.0);\n'+  //计算光线方向和法向量的点积
+'float nDotL = max(dot(normal,lightDirection), 0.0);\n'+  //计算光线方向和法向量的点积
 'v_Color = vec4(a_Color.rgb * nDotL, a_Color.a);\n'+
 '}\n';
 //片源着色器程序
@@ -118,6 +118,15 @@ var g_objDoc = null;
 var g_drawingInfo = null;
 
 // 读取OBJ
+/**
+ * 
+ * @param {*} fileString  是字符串形式的模型文件的文本
+ * @param {*} fileName 
+ * @param {*} gl 
+ * @param {*} o 
+ * @param {*} scale 
+ * @param {*} reverse 
+ */
 function onReadOBJFile(fileString, fileName, gl, o, scale, reverse) {
     var objDoc = new OBJDoc(fileName);
     var result = objDoc.parse(fileString, scale, reverse);
@@ -126,6 +135,7 @@ function onReadOBJFile(fileString, fileName, gl, o, scale, reverse) {
         g_drawingInfo = null;
         console.log('OBJ文件解析错误');
     }
+    // 将字符串解析为WebGL易用的格式，并赋值给全局对象 g_objDoc
     g_objDoc = objDoc;
 }
 
@@ -191,46 +201,50 @@ function animate(angle) {
     return newAngle % 360;
 }
 
-
+/**
+ * 模型文件的文本
+ * @param {*} fileName  
+ */
 var OBJDoc = function(fileName) {
     this.fileName = fileName;
-    this.mtls = new Array(0);       //MTL文件
-    this.objects = new Array(0);   //对象
-    this.vertices = new Array(0); //初始化顶点信息
-    this.normals = new Array(0);  //初始化法线
+    this.mtls = new Array(0);     //材质MTL文件
+    this.objects = new Array(0);   //对象Object列表
+    this.vertices = new Array(0); //顶点vertex信息
+    this.normals = new Array(0);  //法线normal列表
 }
-
-
-
-
-
+/**
+ *  将字符串文本解析成WebGL易用的格式
+ * @param {*} fileString 
+ * @param {*} scale 
+ * @param {*} reverse 
+ */
 OBJDoc.prototype.parse = function(fileString, scale, reverse) {
-    var lines = fileString.split('\n'); //分层行数据
-    lines.push(null); // 添加null到最后一行末尾
-    var index = 0;  //初始化行索引
+    var lines = fileString.split('\n'); //拆成逐行的
+    lines.push(null); // 添加null到最后一行末尾，作为结束标识
+    var index = 0;  //初始化当前行索引
 
     var currentObject = null;
     var currentMaterialName = '';
 
     // 一行一行的解析
-    var line;
+    var line;  // 用于接收当前行文本
     var sp = new StringParser(); //创建行解析对象
     while ((line = lines[index++]) !=null) { //未读取完毕
         sp.init(line);   // 初始化行解析字符串
-        var command = sp.getWord(); // 获取命令
-        if (command == null) continue; //空值 继续执行
+        var command = sp.getWord(); // 获取命令名 （某行的第一个单次）
+        if (command == null) continue; //检查是否为null  空值 继续执行
 
         switch(command) {
             case '#' :
-              continue;
+              continue;      // 跳过注释
             case 'mtllib':  // 读取 mtl材料信息 
                 var path = this.parseMtllib(sp, this.fileName);
-                var mtl = new MTLDoc();
+                var mtl = new MTLDoc();    // 创建MTL对象实例
                 this.mtls.push(mtl);
                 var request = new XMLHttpRequest();
                 request.onreadystatechange = function() {
                     if(request.readyState == 4) {
-                        if(request.status!==404) {
+                        if(request.status != 404) {
                             onReadMTLFile(request.responseText, mtl);
                         }else {
                             mtl.complete = true;
@@ -239,14 +253,14 @@ OBJDoc.prototype.parse = function(fileString, scale, reverse) {
                 }
                 request.open("GET", path, true);
                 request.send();
-                continue; //执行下一行
+                continue; //解析下一行
             case 'o':
-            case 'g':
+            case 'g':  //读取对象名称
                var object = this.parseObjectName(sp);
                this.objects.push(object);
                currentObject = object;
-               continue;
-            case 'v':
+               continue;    // 解析下一行
+            case 'v':       // 读取顶点
              var vertex = this.parseVertex(sp, scale);
              this.vertices.push(vertex);
              continue; //执行下一行
@@ -254,13 +268,13 @@ OBJDoc.prototype.parse = function(fileString, scale, reverse) {
               var normal = this.parseNormal(sp);
               this.normals.push(normal);
               continue;
-            case 'usemtl': //读取图层名称
+            case 'usemtl': //读取材质名
               currentMaterialName = this.parseUsemtl(sp);
               continue;
-            case 'f':
+            case 'f':         // 读取表面
               var face = this.parseFace(sp, currentMaterialName, this.vertices, reverse);
               currentObject.addFace(face);
-              continue;
+              continue;  // 解析下一行
         }
     }
     return true;
@@ -377,6 +391,7 @@ OBJDoc.prototype.parseFace = function(sp, materialName, vertices, reverse){
 
 // 解析 material file
 function onReadMTLFile(fileString, mtl) {
+    // console.log("外部材质名 fileString",fileString);
     var lines = fileString.split('\n');
     lines.push(null);
     var index = 0;    //行索引
@@ -416,18 +431,39 @@ OBJDoc.prototype.isMTLComplete = function() {
 }
 
 // 通过材质name获取颜色
-OBJDoc.prototype.findColor = function(name) {
-    for(var i=0; i < this.mtls.length; i++) {
-        for(var j=0; j<this.mtls[i].materials.length; j++) {
-            if(this.mtls[i].materials[j].name == name) {
-                return (this.mtls[i].materials[j].color)
-            }
+// OBJDoc.prototype.findColor = function(name) {
+//     for(var i=0; i < this.mtls.length; i++) {
+//         for(var j=0; j<this.mtls[i].materials.length; j++) {
+//             var colo = this.mtls[i].materials[j];
+//               console.log(colo, colo.name);
+//             // if(this.mtls[i].materials[j].name == name) {
+//             //     return(this.mtls[i].materials[j].color)
+//             // }
+//             if(this.mtls[i].materials[j].name == name){
+//                 return(this.mtls[i].materials[j].color)
+//               }
+//         }
+//     }
+//    return (new Color(0.8, 0.8, 0.8, 1));
+// }
+// Find color by material name
+OBJDoc.prototype.findColor = function(name){
+    for(var i = 0; i < this.mtls.length; i++){
+      for(var j = 0; j < this.mtls[i].materials.length; j++){
+        var colo = this.mtls[i].materials[j];
+        console.log(colo, colo.name);
+        if(this.mtls[i].materials[j].name == name){
+          return(this.mtls[i].materials[j].color)
         }
+      }
     }
-   return (new Color(0.8, 0.8, 0.8, 1));
+    return(new Color(0.8, 0.8, 0.8, 1));
 }
 
 // 为绘制 3D模型设置信息
+/**
+ *  获取待绘制的三维模型信息
+ */
 OBJDoc.prototype.getDrawingInfo = function() {
    // 创建 顶点数组，法线数组，颜色数组，索引数组
    var numIndices = 0;
@@ -466,7 +502,6 @@ OBJDoc.prototype.getDrawingInfo = function() {
                var nIdx = face.nIndices[k];
                if(nIdx >= 0) {
                    var normal = this.normals[nIdx];
-                   console.log('normal',this.normals,normal);
                    normals[index_indices * 3 + 0] = normal.x;
                    normals[index_indices * 3 + 1] = normal.y;
                    normals[index_indices * 3 + 2] = normal.z;
@@ -479,6 +514,10 @@ OBJDoc.prototype.getDrawingInfo = function() {
            }
        }
    }
+   console.log("vertices",vertices);
+   console.log("normals",normals);
+   console.log("indices",indices);
+   console.log("colors",colors);
    return new DrawingInfo(vertices, normals, colors, indices);
 }
 
@@ -578,17 +617,22 @@ var DrawingInfo = function(vertices, normals, colors, indices) {
 // 构造函数
 
 var StringParser = function(str) {
-    this.str = str;
-    this.index = 0;
+    this.str = str; // 将参数字符串报存下来
+    this.index = 0;  // 当前处理位置
+    this.init(str);
 }
 
-// 
+// 初始化 对象
+/**
+ * 初始化对象
+ * @param {*} str 需要解析的str
+ */
 StringParser.prototype.init = function (str) {
     this.str = str;
     this.index = 0;
 }
 
-// 跳过 分隔符  delimiters
+// 跳过 分隔符（制表符、空格字符、括号、引号）  delimiters
 StringParser.prototype.skipDelimiters = function() {
     for(var i = this.index, len = this.str.lenght; i < len; i++ ) {
         var c = this.str.charAt(i);
@@ -600,12 +644,16 @@ StringParser.prototype.skipDelimiters = function() {
 }
 
 // 跳到下一个词
+/**
+ * 跳至下一个单词
+ */
 StringParser.prototype.skipToNextWord = function() {
     this.skipDelimiters();
     var  n = getWordLength(this.str, this.index);
     this.index += (n + 1);
 }
-//
+//获取该行的首个单词
+
 StringParser.prototype.getWord = function() {
     this.skipDelimiters();
     var n = getWordLength(this.str, this.index);
@@ -615,10 +663,15 @@ StringParser.prototype.getWord = function() {
     return word;
 }
 //
+/**
+ * 获取单词并转为整型数
+ */
 StringParser.prototype.getInt = function() {
     return parseInt(this.getWord());
 }
-//
+/**
+ * 获取单词并转为浮点数
+ */
 StringParser.prototype.getFloat = function() {
     return parseFloat(this.getWord());
 }
